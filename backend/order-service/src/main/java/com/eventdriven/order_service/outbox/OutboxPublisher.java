@@ -3,7 +3,7 @@ package com.eventdriven.order_service.outbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.shcheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ public class OutboxPublisher {
     public void publishPendingEvents() {
         for(OutboxEvent event : repository.findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING)) {
             try {
-                kafkaTemplate.send("orders.created", event.getAggregateId().toString(), event.getPayload().get());
+                kafkaTemplate.send("orders.created", event.getAggregateId().toString(), event.getPayload());
                 event.markAsPublished();
                 repository.save(event);
                 log.info("Published outbox event with ID: {}", event.getId());

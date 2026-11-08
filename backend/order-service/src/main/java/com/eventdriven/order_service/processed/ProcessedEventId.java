@@ -5,14 +5,14 @@ import java.util.UUID;
 
 public class ProcessedEventId implements Serializable {
     private UUID eventId;
-    private String eventType;
+    private String consumerName;
 
     public ProcessedEventId() {
     }
 
-    public ProcessedEventId(UUID eventId, String eventType) {
+    public ProcessedEventId(UUID eventId, String consumerName) {
         this.eventId = eventId;
-        this.eventType = eventType;
+        this.consumerName = consumerName;
     }
 
     @Override
@@ -21,11 +21,11 @@ public class ProcessedEventId implements Serializable {
             return false;
         }
         
-        return eventId.equals(id.eventId) && ConsumerName.equals(id.ConsumerName);
+        return eventId.equals(id.eventId) && consumerName.equals(id.consumerName);
     }
 
     @Override
     public int hashCode() {
-        return 31 * eventId.hashCode() + ConsumerName.hashCode();
+        return 31 * eventId.hashCode() + consumerName.hashCode();
     }
 }

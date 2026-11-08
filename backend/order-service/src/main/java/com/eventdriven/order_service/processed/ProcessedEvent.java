@@ -1,4 +1,4 @@
-import com.eventdriven.order_service.order.processed;
+package com.eventdriven.order_service.processed;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
