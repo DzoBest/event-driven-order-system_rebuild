@@ -66,7 +66,7 @@ def run() -> None:
                     )
                 producer.flush()
                 consumer.commit(message)
-            except (KeyError, json.JSONDecodeError) as e:
+            except (KeyError, json.JSONDecodeError, ValueError) as e:
                 logger.exception(f"Invalid order eevent; it requires DLQ handling: %s", e)
                 producer.produce(
                     "orders.dlq",
