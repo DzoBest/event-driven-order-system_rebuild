@@ -23,7 +23,7 @@ public class OutboxPublisher {
     public void publishPendingEvents() {
         for(OutboxEvent event : repository.findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING)) {
             try {
-                kafkaTemplate.send("orders.created", event.getAggregateId().toString(), event.getPayload());
+                kafkaTemplate.send("orders.created", event.getAggregateId().toString(), event.getPayload()).get();
                 event.markAsPublished();
                 repository.save(event);
                 log.info("Published outbox event with ID: {}", event.getId());

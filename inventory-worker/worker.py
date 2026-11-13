@@ -20,7 +20,7 @@ def build_result(event: dict) -> tuple[str, dict]:
     payload = {"available": available}
 
     if not available:
-        payload["reason"] = "Insufficient stock for one or more items."
+        payload["reason"] = "INSUFFICIENT_STOCK"
     result = {
         "event_id": str(uuid.uuid4()),
         "event_type": event_type,
@@ -53,7 +53,12 @@ def run() -> None:
             if message is None:
                 continue
             if message.error():
-                if message.error().code() == KafkaError._PARTITION_EOF:
+                if message.error().code() in (
+                    KafkaError._PARTITION_EOF,
+                    KafkaError.UNKNOWN_TOPIC_OR_PART,
+                    KafkaError._TRANSPORT,
+                    KafkaError._ALL_BROKERS_DOWN,
+                ):
                     continue
                 raise RuntimeError(f"Consumer error: {message.error()}")
             try:
