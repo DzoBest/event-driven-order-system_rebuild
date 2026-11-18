@@ -24,7 +24,7 @@ def build_result(event: dict) -> tuple[str, dict]:
     result = {
         "event_id": str(uuid.uuid4()),
         "event_type": event_type,
-        "occured_At": datetime.now(timezone.utc).isoformat(),
+        "occurred_At": datetime.now(timezone.utc).isoformat(),
         "version": 1,
         "orderId": event["orderId"],
         "payload": payload,
