@@ -79,5 +79,16 @@ services:
         host=postgres
         port=5432
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    depends_on:
+      order-service:
+        condition: service_started
+    ports:
+      - "3000:3000"
+
 volumes:
   postgres-data:

@@ -1,8 +1,17 @@
 import type { Order, OrderRequest } from "./types";
 
-const API_URL = "http://localhost:8080";
+function getApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8080`;
+  }
+  return "http://localhost:8080";
+}
 
 export async function createOrder(request: OrderRequest): Promise<Order> {
+  const API_URL = getApiUrl();
   const response = await fetch(`${API_URL}/api/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -24,6 +33,7 @@ export async function createOrder(request: OrderRequest): Promise<Order> {
 }
 
 export async function getOrder(id: string): Promise<Order> {
+  const API_URL = getApiUrl();
   const response = await fetch(`${API_URL}/api/orders/${id}`);
   if (!response.ok) {
     throw new Error("Impossible d'actualiser la commande.");

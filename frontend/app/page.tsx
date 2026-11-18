@@ -100,10 +100,6 @@ export default function Home() {
           <span className="brand-mark">N</span>
           <span>Nova</span>
         </a>
-        <div className="header-status">
-          <span className="status-dot" />
-          Backend connecté
-        </div>
       </header>
 
       <div className="store-layout">

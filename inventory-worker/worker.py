@@ -19,7 +19,7 @@ OUTPUT_TOPIC = ("orders.stock-validated", "orders.stock-rejected")
 POSTGRES_DSN = os.getenv("POSTGRES_DSN")
 
 
-def reserve_stock(items: list[dict]) -> tuple[bool, list[dict]]:
+def reserve_stock(items: list[dict], event_id: str | None = None) -> tuple[bool, list[dict], bool]:
     if not POSTGRES_DSN:
         raise RuntimeError("POSTGRES_DSN is required")
 
@@ -36,7 +36,20 @@ def reserve_stock(items: list[dict]) -> tuple[bool, list[dict]]:
     try:
         with connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                for product_id, quantity in requested.items():
+                if event_id:
+                    cursor.execute(
+                        """
+                        INSERT INTO inventory_processed_events (event_id, processed_at)
+                        VALUES (%s, NOW())
+                        ON CONFLICT (event_id) DO NOTHING
+                        RETURNING event_id
+                        """,
+                        (event_id,),
+                    )
+                    if cursor.fetchone() is None:
+                        return False, [], True
+
+                for product_id, quantity in sorted(requested.items()):
                     cursor.execute(
                         """
                         SELECT available_quantity
@@ -56,9 +69,9 @@ def reserve_stock(items: list[dict]) -> tuple[bool, list[dict]]:
                         })
 
                 if insufficient:
-                    return False, insufficient
+                    return False, insufficient, False
 
-                for product_id, quantity in requested.items():
+                for product_id, quantity in sorted(requested.items()):
                     cursor.execute(
                         """
                         UPDATE inventory_items
@@ -70,7 +83,7 @@ def reserve_stock(items: list[dict]) -> tuple[bool, list[dict]]:
                         """,
                         (quantity, quantity, product_id),
                     )
-        return True, []
+        return True, [], False
     finally:
         connection.close()
 
@@ -79,7 +92,10 @@ def build_result(event: dict, stock_reservation=None) -> tuple[str, dict]:
     items = event["payload"]["items"]
     if stock_reservation is None:
         stock_reservation = reserve_stock(items)
-    available, insufficient = stock_reservation
+    if len(stock_reservation) == 2:
+        available, insufficient = stock_reservation
+    else:
+        available, insufficient, _ = stock_reservation
     event_type = "StockValidated" if available else "StockRejected"
     payload = {"available": available}
 
@@ -128,7 +144,12 @@ def run() -> None:
                 raise RuntimeError(f"Consumer error: {message.error()}")
             try:
                 event = json.loads(message.value().decode("utf-8"))
-                topic, result = build_result(event)
+                event_id = event.get("eventId") or event.get("event_id")
+                stock_reservation = reserve_stock(event["payload"]["items"], event_id)
+                if stock_reservation[2]:
+                    consumer.commit(message)
+                    continue
+                topic, result = build_result(event, stock_reservation)
                 producer.produce(
                     topic,
                     key=event["orderId"], 

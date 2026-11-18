@@ -68,9 +68,9 @@ public class StockResultConsumer {
 
             Order order = orderRepository.findById(event.orderId()).orElse(null);
             if (order == null) {
-                log.warn("Stock result references unknown order {}", event.orderId());
-                acknowledgment.acknowledge();
-                return;
+                throw new IllegalArgumentException(
+                        "Stock result references unknown order " + event.orderId()
+                );
             }
 
             if (order.getStatus() == OrderStatus.PENDING) {
@@ -91,7 +91,7 @@ public class StockResultConsumer {
             );
         } catch (Exception exception) {
             log.error("Could not process stock result message: {}", message, exception);
-            acknowledgment.acknowledge();
+            throw new IllegalStateException("Could not process stock result", exception);
         }
     }
 }
