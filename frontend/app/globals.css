@@ -486,8 +486,8 @@ h3 {
 }
 
 .status-pending { color: #93733e; background: #f7efd9; }
-.status-validated { color: #557962; background: #e8f1e8; }
-.status-rejected { color: #98575b; background: #f5e8e8; }
+.status-stock_validated { color: #557962; background: #e8f1e8; }
+.status-stock_not_available { color: #98575b; background: #f5e8e8; }
 
 .secondary-button {
   height: 42px;

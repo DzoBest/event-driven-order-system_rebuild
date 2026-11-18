@@ -3,8 +3,11 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
+from collections import defaultdict
 
 from confluent_kafka import Consumer, Producer, KafkaError
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -13,14 +16,76 @@ BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 INPUT_TOPIC = "orders.created"
 OUTPUT_TOPIC = ("orders.stock-validated", "orders.stock-rejected")
 
-def build_result(event: dict) -> tuple[str, dict]:
+POSTGRES_DSN = os.getenv("POSTGRES_DSN")
+
+
+def reserve_stock(items: list[dict]) -> tuple[bool, list[dict]]:
+    if not POSTGRES_DSN:
+        raise RuntimeError("POSTGRES_DSN is required")
+
+    requested = defaultdict(int)
+    for item in items:
+        product_id = item["productId"]
+        quantity = item["quantity"]
+        if quantity <= 0:
+            raise ValueError("Item quantity must be positive")
+        requested[product_id] += quantity
+
+    insufficient = []
+    connection = psycopg2.connect(POSTGRES_DSN)
+    try:
+        with connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                for product_id, quantity in requested.items():
+                    cursor.execute(
+                        """
+                        SELECT available_quantity
+                        FROM inventory_items
+                        WHERE product_id = %s
+                        FOR UPDATE
+                        """,
+                        (product_id,),
+                    )
+                    row = cursor.fetchone()
+                    available = row["available_quantity"] if row else 0
+                    if available < quantity:
+                        insufficient.append({
+                            "productId": product_id,
+                            "requestedQuantity": quantity,
+                            "availableQuantity": available,
+                        })
+
+                if insufficient:
+                    return False, insufficient
+
+                for product_id, quantity in requested.items():
+                    cursor.execute(
+                        """
+                        UPDATE inventory_items
+                        SET available_quantity = available_quantity - %s,
+                            reserved_quantity = reserved_quantity + %s,
+                            version = version + 1,
+                            updated_at = NOW()
+                        WHERE product_id = %s
+                        """,
+                        (quantity, quantity, product_id),
+                    )
+        return True, []
+    finally:
+        connection.close()
+
+
+def build_result(event: dict, stock_reservation=None) -> tuple[str, dict]:
     items = event["payload"]["items"]
-    available = all(item["quantity"] <= 10 for item in items)
+    if stock_reservation is None:
+        stock_reservation = reserve_stock(items)
+    available, insufficient = stock_reservation
     event_type = "StockValidated" if available else "StockRejected"
     payload = {"available": available}
 
     if not available:
         payload["reason"] = "INSUFFICIENT_STOCK"
+        payload["items"] = insufficient
     result = {
         "event_id": str(uuid.uuid4()),
         "event_type": event_type,
@@ -71,6 +136,9 @@ def run() -> None:
                     )
                 producer.flush()
                 consumer.commit(message)
+            except psycopg2.Error as e:
+                logger.exception("Database unavailable while reserving stock: %s", e)
+                continue
             except (KeyError, json.JSONDecodeError, ValueError) as e:
                 logger.exception(f"Invalid order eevent; it requires DLQ handling: %s", e)
                 producer.produce(

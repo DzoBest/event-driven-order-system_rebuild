@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { createOrder, getOrder } from "../lib/order-api";
 import type { Order } from "../lib/types";
 import { ProductCard } from "../components/product-card";
@@ -76,6 +76,20 @@ export default function Home() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!order || order.status !== "PENDING") return;
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        setOrder(await getOrder(order.id));
+      } catch {
+        // Conserve le dernier statut connu en cas d'erreur temporaire.
+      }
+    }, 2000);
+
+    return () => window.clearInterval(intervalId);
+  }, [order]);
 
   const total = cart.reduce((sum, line) => sum + line.price * line.quantity, 0);
 
