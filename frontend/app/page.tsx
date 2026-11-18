@@ -14,6 +14,12 @@ const products = [
 
 type CartLine = (typeof products)[number] & { quantity: number };
 
+const orderStatusLabels: Record<string, string> = {
+  PENDING: "En cours de vérification",
+  STOCK_VALIDATED: "Commande confirmée",
+  STOCK_NOT_AVAILABLE: "Stock insuffisant",
+};
+
 export default function Home() {
   const [customerId, setCustomerId] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -165,7 +171,7 @@ export default function Home() {
                   <p className="eyebrow">Statut de la commande</p>
                 </div>
                 <span className={`order-status status-${order.status.toLowerCase()}`}>
-                  {order.status}
+                  {orderStatusLabels[order.status] ?? "Statut en cours"}
                 </span>
               </div>
               <button className="secondary-button" type="button" onClick={refreshOrder} disabled={loading}>

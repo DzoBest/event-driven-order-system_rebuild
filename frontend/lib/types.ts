@@ -13,6 +13,6 @@ export type Order = {
     productId: string;
     quantity: number;
   }>;
-  status: "PENDING" | "VALIDATED" | "REJECTED" | string;
+  status: "PENDING" | "STOCK_VALIDATED" | "STOCK_NOT_AVAILABLE" | string;
   createdAt: string;
 };
